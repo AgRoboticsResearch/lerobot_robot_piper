@@ -110,6 +110,14 @@ class PiperEEReferenceAndDelta(RobotActionProcessorStep):
         wy = float(action.pop("target_wy"))
         wz = float(action.pop("target_wz"))
         gripper_vel = float(action.pop("gripper_vel"))
+        
+        # Debug: log raw phone input
+        if enabled and (abs(tx) > 0.001 or abs(ty) > 0.001 or abs(tz) > 0.001):
+            logger.debug(f"[EERef] Phone input: tx={tx:.4f}, ty={ty:.4f}, tz={tz:.4f}")
+        
+        # Debug: log enabled state changes
+        if enabled != self._prev_enabled:
+            logger.info(f"[EERef] enabled changed: {self._prev_enabled} -> {enabled}")
 
         # Apply axis remapping from Phone frame to Piper robot frame
         # This corrects the movement direction to match phone orientation
@@ -132,6 +140,7 @@ class PiperEEReferenceAndDelta(RobotActionProcessorStep):
                 # Latched reference mode: latch reference at the rising edge
                 if not self._prev_enabled or self.reference_ee_pose is None:
                     self.reference_ee_pose = t_curr.copy()
+                    logger.debug(f"[EERef] Latched new reference pose at pos=({t_curr[0,3]:.3f},{t_curr[1,3]:.3f},{t_curr[2,3]:.3f})")
                 ref = self.reference_ee_pose if self.reference_ee_pose is not None else t_curr
 
             delta_p = np.array(
@@ -146,6 +155,8 @@ class PiperEEReferenceAndDelta(RobotActionProcessorStep):
             desired = np.eye(4, dtype=float)
             desired[:3, :3] = ref[:3, :3] @ r_abs
             desired[:3, 3] = ref[:3, 3] + delta_p
+            
+            logger.debug(f"[EERef] enabled=True, delta=({dx:.3f},{dy:.3f},{dz:.3f}), target_pos=({desired[0,3]:.3f},{desired[1,3]:.3f},{desired[2,3]:.3f})")
 
             self._command_when_disabled = desired.copy()
         else:
@@ -356,6 +367,12 @@ class PiperInverseKinematicsEEToJoints(RobotActionProcessorStep):
 
         # Compute inverse kinematics
         q_target = self.kinematics.inverse_kinematics(self.q_curr, t_des)
+        
+        # Debug: log IK input/output
+        logger.debug(f"[IK] EE target: pos=({x:.3f},{y:.3f},{z:.3f}), rot=({wx:.3f},{wy:.3f},{wz:.3f})")
+        logger.debug(f"[IK] q_curr: {[f'{q:.1f}' for q in self.q_curr]}")
+        logger.debug(f"[IK] q_target: {[f'{q:.1f}' for q in q_target]}")
+        
         self.q_curr = q_target
 
         # Map IK results to joint actions
