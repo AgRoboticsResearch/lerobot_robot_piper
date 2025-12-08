@@ -14,15 +14,16 @@ class PiperConfig(RobotConfig):
     # Piper SDK returns 6 joints; keep order stable
     joint_names: list[str] = field(default_factory=lambda: [f"joint_{i+1}" for i in range(6)])
     # Optional sign flips applied symmetrically to obs/actions (length must match joints)
-    joint_signs: list[int] = field(default_factory=lambda: [-1, 1, 1, -1, 1, -1])
+    joint_signs: list[int] = field(default_factory=lambda: [1, 1, 1, 1, 1, 1])
     # Allow teleop joints (e.g., SO101) to reference Piper joints directly by name
     joint_aliases: dict[str, str] = field(
         default_factory=lambda: {
-            "shoulder_pan": "joint_1",
-            "shoulder_lift": "joint_2",
-            "elbow_flex": "joint_3",
-            "wrist_flex": "joint_5",
-            "wrist_roll": "joint_6",
+            "joint1": "joint1",
+            "joint2": "joint2",
+            "joint3": "joint3",
+            "joint4": "joint4",
+            "joint5": "joint5",
+            "joint6": "joint6",
         }
     )
     # Expose gripper as "gripper.pos" in mm if True
