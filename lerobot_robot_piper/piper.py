@@ -231,6 +231,8 @@ class Piper(Robot):
                 except Exception:
                     logger.warning("Invalid gripper.pos value %r, ignoring", g_raw)
                     gripper_mm = None
+            # Debug: log gripper command
+            logger.debug(f"[Piper.send_action] gripper.pos raw={g_raw}, gripper_mm={gripper_mm}")
         else:
             gripper_mm = None
 

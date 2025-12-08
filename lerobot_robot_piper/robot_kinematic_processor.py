@@ -358,13 +358,14 @@ class PiperInverseKinematicsEEToJoints(RobotActionProcessorStep):
         q_target = self.kinematics.inverse_kinematics(self.q_curr, t_des)
         self.q_curr = q_target
 
-        # TODO: This is sensitive to order of motor_names = q_target mapping
+        # Map IK results to joint actions
         for i, name in enumerate(self.motor_names):
             if name != "gripper":
                 # RobotKinematics.inverse_kinematics returns DEGREES
                 action[f"{name}.pos"] = float(q_target[i])
-            else:
-                action["gripper.pos"] = float(gripper_pos)
+        
+        # Always set gripper position from the pipeline (ee.gripper_pos from PiperGripperVelocityToJoint)
+        action["gripper.pos"] = float(gripper_pos)
 
         return action
 
@@ -406,7 +407,7 @@ class PiperGripperVelocityToJoint(RobotActionProcessorStep):
 
     speed_factor: float = 20.0
     clip_min: float = 0.0
-    clip_max: float = 100.0
+    clip_max: float = 80.0  # Piper gripper range ~0-80mm
     discrete_gripper: bool = False
     
     # Piper specific: gripper is often handled separately from the motor list 
@@ -433,6 +434,12 @@ class PiperGripperVelocityToJoint(RobotActionProcessorStep):
         # Compute desired gripper position
         delta = gripper_vel * float(self.speed_factor)
         gripper_pos = float(np.clip(current_gripper_pos + delta, self.clip_min, self.clip_max))
+        
+        # Debug: log gripper calculation
+        if abs(gripper_vel) > 0.001:  # Only log when there's actual velocity
+            logger.debug(f"[GripperVel2Joint] vel={gripper_vel:.3f} * factor={self.speed_factor} = delta={delta:.3f}, "
+                        f"current={current_gripper_pos:.2f} -> target={gripper_pos:.2f} (clip [{self.clip_min}, {self.clip_max}])")
+        
         action["ee.gripper_pos"] = gripper_pos
 
         return action

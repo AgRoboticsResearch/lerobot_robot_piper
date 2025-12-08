@@ -68,12 +68,13 @@ class PiperSDKInterface:
             # SDK motor list appears 1-indexed -> extract 1..6
             # Angle limits are in deci-degrees (0.1 deg). Convert to degrees for consistency.
             self.min_pos = [pos.min_angle_limit / 10.0 for pos in angel_status.all_motor_angle_limit_max_spd.motor[1:7]] + [0.0]
-            self.max_pos = [pos.max_angle_limit / 10.0 for pos in angel_status.all_motor_angle_limit_max_spd.motor[1:7]] + [10.0]
+            self.max_pos = [pos.max_angle_limit / 10.0 for pos in angel_status.all_motor_angle_limit_max_spd.motor[1:7]] + [80.0]  # Piper gripper ~0-80mm
+            log.info(f"[SDK] Joint limits loaded. Gripper range: {self.min_pos[6]}-{self.max_pos[6]} mm")
         except Exception as e:
             log.warning("Could not read joint limits: %s", e)
             # sensible defaults to avoid crashes; keep lists length >=7
             self.min_pos = [-180.0] * 6 + [0.0]
-            self.max_pos = [180.0] * 6 + [10.0]
+            self.max_pos = [180.0] * 6 + [80.0]  # Piper gripper ~0-80mm
 
     def set_joint_positions(self, positions):
         """
@@ -141,7 +142,9 @@ class PiperSDKInterface:
         try:
             self.piper.JointCtrl(*j_ints)
             if gripper_mm is not None:
-                self.piper.GripperCtrl(int(round(gripper_mm * 10000.0)), 1000, 0x01, 0)
+                gripper_sdk_val = int(round(gripper_mm * 10000.0))
+                log.debug(f"[SDK] GripperCtrl: {gripper_mm:.2f} mm -> SDK value {gripper_sdk_val}")
+                self.piper.GripperCtrl(gripper_sdk_val, 1000, 0x01, 0)
         except Exception as e:
             log.exception("set_joint_positions_deg failed: %s", e)
             raise
