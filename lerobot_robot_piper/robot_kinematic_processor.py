@@ -559,3 +559,59 @@ class PiperJointSafetyClamp(RobotActionProcessorStep):
     ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
         # This step doesn't change the feature structure
         return features
+
+
+@ProcessorStepRegistry.register("piper_forward_kinematics_joints_to_ee_observation")
+@dataclass
+class PiperForwardKinematicsJointsToEEObservation(ObservationProcessorStep):
+    """
+    Computes the end-effector pose from joint positions using forward kinematics (FK).
+    """
+
+    kinematics: RobotKinematics
+    motor_names: list[str]
+
+    def observation(self, observation: dict[str, Any]) -> dict[str, Any]:
+        # Extract joint values
+        q = np.array(
+            [
+                float(observation.get(f"{name}.pos", 0.0))
+                for name in self.motor_names
+                if name != "gripper"
+            ],
+            dtype=float,
+        )
+        
+        # Compute FK
+        # NOTE: We explicitly use "gripper_base" to match teleoperate.py and ensure accuracy
+        # regardless of how RobotKinematics was initialized.
+        # First update the robot state (this converts degrees to radians and updates placo)
+        _ = self.kinematics.forward_kinematics(q)
+        # Then get the transform for the specific frame we care about
+        t = self.kinematics.robot.get_T_world_frame("gripper_base")
+
+        pos = t[:3, 3]
+        tw = Rotation.from_matrix(t[:3, :3]).as_rotvec()
+        
+        # Add to observation
+        observation["ee.x"] = float(pos[0])
+        observation["ee.y"] = float(pos[1])
+        observation["ee.z"] = float(pos[2])
+        observation["ee.wx"] = float(tw[0])
+        observation["ee.wy"] = float(tw[1])
+        observation["ee.wz"] = float(tw[2])
+        
+        # Pass through gripper pos if available
+        if "gripper.pos" in observation:
+            observation["ee.gripper_pos"] = float(observation["gripper.pos"])
+            
+        return observation
+
+    def transform_features(
+        self, features: dict[PipelineFeatureType, dict[str, PolicyFeature]]
+    ) -> dict[PipelineFeatureType, dict[str, PolicyFeature]]:
+        for feat in ["x", "y", "z", "wx", "wy", "wz", "gripper_pos"]:
+            features[PipelineFeatureType.OBSERVATION][f"ee.{feat}"] = PolicyFeature(
+                type=FeatureType.STATE, shape=(1,)
+            )
+        return features
