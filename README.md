@@ -5,7 +5,7 @@ This package provides integration between LeRobot and the Piper robot arm.
 ## Installation
 
 ```bash
-pip install -e .
+pip install lerobot_robot_piper
 ```
 
 ## Usage
