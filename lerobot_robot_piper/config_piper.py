@@ -1,9 +1,15 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from lerobot.cameras import CameraConfig
 from lerobot.cameras.opencv import OpenCVCameraConfig
 from lerobot.robots import RobotConfig
 
+# Default: calibration.json from the SROI gripper package
+_DEFAULT_GRIPPER_CALIBRATION = str(
+    Path(__file__).resolve().parent.parent.parent
+    / "lerobot_robot_sroi_gripper" / "lerobot_robot_sroi_gripper" / "calibration.json"
+)
 
 
 @RobotConfig.register_subclass("piper")
@@ -26,21 +32,30 @@ class PiperConfig(RobotConfig):
             "joint6": "joint6",
         }
     )
-    # Expose gripper as "gripper.pos" in mm if True
+    # Expose gripper as "gripper.pos" (0.0 closed - 1.0 open) if True
     include_gripper: bool = False
+    # SROI gripper connection
+    gripper_port: str = "/dev/ttyACM0"
+    gripper_baudrate: int = 921600
+    gripper_can_id: int = 0x08
+    gripper_recv_id: int = 0x18
+    gripper_motor_type: str = "DM4310"
+    gripper_kp: float = 10.0   # Impedance stiffness (Nm/rad)
+    gripper_kd: float = 1.0    # Impedance damping (Nm·s/rad)
+    gripper_calibration_path: str = _DEFAULT_GRIPPER_CALIBRATION
     # Optional cameras; leave empty when not used
     cameras: dict[str, CameraConfig] = field(
         default_factory=lambda: {
             "wrist": OpenCVCameraConfig(
-                index_or_path=4, 
-                width=640, 
-                height=480, 
-                fps=30, 
+                index_or_path=4,
+                width=640,
+                height=480,
+                fps=30,
                 fourcc="MJPG"
             )
         }
     )
-    # When False, expose normalized [-100,100] joint percents; when True, degrees/mm
+    # When False, expose normalized [-100,100] joint percents; when True, degrees
     use_degrees: bool = True
     # Timeout in seconds to wait for SDK EnablePiper during connect
     enable_timeout: float = 5.0

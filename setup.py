@@ -22,6 +22,7 @@ setup(
         "lerobot>=0.4.0",
         "python-can",
         "piper_sdk",
+        "lerobot-robot-sroi-gripper",
     ],
     python_requires=">=3.10",
     classifiers=[
