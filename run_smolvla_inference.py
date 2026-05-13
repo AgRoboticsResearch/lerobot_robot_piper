@@ -133,6 +133,7 @@ def load_smolvla_pipeline(pretrained_path: str, device: str = "cuda", ds_meta=No
         use_relative_actions=policy_config.get("use_relative_actions", True),
         relative_exclude_joints=policy_config.get("relative_exclude_joints", ["gripper"]),
         relative_exclude_state_joints=policy_config.get("relative_exclude_state_joints", ["gripper"]),
+        pose_dim=policy_config.get("pose_dim", 0),
         device=device,
         resize_imgs_with_padding=policy_config.get("resize_imgs_with_padding", (512, 512)),
         freeze_vision_encoder=policy_config.get("freeze_vision_encoder", True),
@@ -144,7 +145,7 @@ def load_smolvla_pipeline(pretrained_path: str, device: str = "cuda", ds_meta=No
     )
 
     logger.info(f"Config: derive_state_from_action={cfg.derive_state_from_action}")
-    logger.info(f"Config: use_relative_actions={cfg.use_relative_actions}")
+    logger.info(f"Config: use_relative_actions={cfg.use_relative_actions}, pose_dim={cfg.pose_dim}")
     logger.info(f"Config: device={cfg.device}")
 
     policy = make_policy(cfg=cfg, ds_meta=ds_meta)
@@ -819,6 +820,7 @@ def run_dataset_mode(args):
     cfg = SmolVLAConfig(
         derive_state_from_action=True,
         use_relative_actions=True,
+        pose_dim=6,
         device=device,
         resize_imgs_with_padding=(512, 512),
         freeze_vision_encoder=True,

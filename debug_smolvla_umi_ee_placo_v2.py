@@ -318,6 +318,7 @@ def load_smolvla_pipeline(pretrained_path: str, device: str = "cuda", dataset_ro
         use_relative_actions=policy_config.get("use_relative_actions", True),
         relative_exclude_joints=policy_config.get("relative_exclude_joints", ["gripper"]),
         relative_exclude_state_joints=policy_config.get("relative_exclude_state_joints", ["gripper"]),
+        pose_dim=policy_config.get("pose_dim", 0),
         device=device,
         resize_imgs_with_padding=tuple(policy_config.get("resize_imgs_with_padding", (512, 512))),
         freeze_vision_encoder=policy_config.get("freeze_vision_encoder", True),
@@ -329,7 +330,7 @@ def load_smolvla_pipeline(pretrained_path: str, device: str = "cuda", dataset_ro
     )
 
     logger.info(f"Config: derive_state={cfg.derive_state_from_action}, "
-                f"relative_actions={cfg.use_relative_actions}")
+                f"relative_actions={cfg.use_relative_actions}, pose_dim={cfg.pose_dim}")
 
     policy = make_policy(cfg=cfg, ds_meta=ds_meta)
     policy.eval()
@@ -914,14 +915,13 @@ def run_realtime_viz(args):
 
             # --- Feed predictions to controller (execute + auto modes) ---
             if controller is not None and not _frozen:
-                n_stored = controller.buffer.update(
+                n_stored = controller.exec_actions(
                     pred_world,
-                    t_start=time.monotonic(),
+                    obs_timestamps=time.monotonic(),
                     dt=1.0 / args.fps,
-                    blend_steps=3,
                 )
-                logger.info(f"Buffer updated: {n_stored} waypoints stored, "
-                             f"remaining={len(controller.buffer)}")
+                logger.info(f"Queue fed: {n_stored} actions sent, "
+                             f"remaining={controller.remaining()}")
 
             # --- Interactive execution mode (execute mode fills buffer on 'e') ---
             if args.execute and controller is not None:
@@ -958,7 +958,12 @@ def run_realtime_viz(args):
                     _frozen = not _frozen
                     if _frozen:
                         logger.warning("*** FROZEN — press 'f' to unfreeze ***")
-                        controller.buffer.clear()
+                        # Drain command queue
+                        while not controller._cmd_queue.empty():
+                            try:
+                                controller._cmd_queue.get_nowait()
+                            except Exception:
+                                break
                         controller.hold_position()
                     else:
                         logger.info("*** UNFROZEN — re-inferring before resume ***")
@@ -994,6 +999,8 @@ def run_realtime_viz(args):
             except Exception:
                 pass
     finally:
+        if controller is not None:
+            controller.stop()
         stop_reader.set()
         _kb.restore()
         if args.cameraview:
@@ -1041,6 +1048,10 @@ def main():
                         help="IK position weight (default: 1.0)")
     parser.add_argument("--orientation_weight", type=float, default=0.01,
                         help="IK orientation weight (default: 0.01)")
+    parser.add_argument("--control_hz", type=float, default=50.0,
+                        help="Control thread frequency in Hz (default: 50)")
+    parser.add_argument("--max_vel_deg_s", type=float, default=60.0,
+                        help="Max joint velocity in deg/s for smooth controller (default: 60)")
     args = parser.parse_args()
 
     if args.execute and args.auto:

@@ -90,6 +90,7 @@ def load_pipeline(pretrained_path: str, dataset_root: str, device: str = "cuda")
         use_relative_actions=policy_config.get("use_relative_actions", True),
         relative_exclude_joints=policy_config.get("relative_exclude_joints", ["gripper"]),
         relative_exclude_state_joints=policy_config.get("relative_exclude_state_joints", ["gripper"]),
+        pose_dim=policy_config.get("pose_dim", 0),
         device=device,
         resize_imgs_with_padding=tuple(policy_config.get("resize_imgs_with_padding", (512, 512))),
         freeze_vision_encoder=policy_config.get("freeze_vision_encoder", True),

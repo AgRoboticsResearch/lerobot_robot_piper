@@ -113,6 +113,10 @@ class Piper(Robot):
 
     def disconnect(self) -> None:
         if self._iface is not None:
+            try:
+                self._iface.disconnect()
+            except Exception:
+                pass
             self._iface = None
         if self._gripper is not None:
             try:
@@ -196,10 +200,14 @@ class Piper(Robot):
             deg = status[f"joint_{i}.pos"] * self.config.joint_signs[i - 1]
             obs[f"{name}.pos"] = deg if self.config.use_degrees else deg_to_pct(deg, i - 1)
 
-        # Gripper observation from SROI
+        # Gripper observation from SROI — wrapped so gripper failures
+        # don't kill the joint reads that already succeeded above.
         if self.config.include_gripper and self._gripper is not None:
-            state = self._gripper.send_command(kp=0.0, kd=0.0, position=0.0)
-            obs["gripper.pos"] = self._gripper_raw_to_normalized(state.position)
+            try:
+                state = self._gripper.send_command(kp=0.0, kd=0.0, position=0.0)
+                obs["gripper.pos"] = self._gripper_raw_to_normalized(state.position)
+            except Exception as e:
+                logger.debug("Gripper read failed: %s", e)
 
         # Mirror joint values under alias names so teleop processors can access them easily
         for alias, target in self.config.joint_aliases.items():
